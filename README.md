@@ -159,7 +159,6 @@ grep "agent.document" logs/agents.log
 ### System Components
 
 ```
-```
 ┌─────────────────────────────────────────────────────┐
 │              Gradio Web Interface                    │
 │  ┌──────────────┬──────────────┬──────────────┐    │
