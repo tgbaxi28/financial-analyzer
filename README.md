@@ -1,19 +1,38 @@
-# Financial Report Analysis System - Complete Documentation
+# Financial Report Analysis System - Multi-Agent AI Platform
 
-## Overview
+## 🤖 Overview
 
-The Financial Report Analysis System is an AI-powered platform for analyzing consolidated financial reports using a multi-provider LLM architecture. Users can upload reports, query them using natural language, and run pre-built financial analyses - all with **no credential storage** (credentials are entered at runtime).
+The Financial Report Analysis System is a **Multi-Agent AI platform** powered by **LlamaIndex**, providing intelligent, specialized analysis of financial documents through collaborative AI agents. The system uses a multi-provider LLM architecture with **no credential storage** (credentials are entered at runtime).
+
+### 🌟 What's New in v2.0
+
+**Multi-Agent AI System** - Intelligent query routing and specialized analysis through:
+- 📄 **Document Analysis Agent** - Expert in searching and extracting information
+- 📊 **Financial Metrics Agent** - Specialized in calculating ratios and metrics
+- 📈 **Trend Analysis Agent** - Identifies patterns and trends over time
+- 🧭 **Query Router Agent** - Routes queries to the best specialist
+- 🎯 **Agent Orchestrator** - Coordinates all agents seamlessly
+
+**Enhanced Logging System** - Production-ready observability:
+- Structured logging (JSON & text formats)
+- Automatic log rotation (10MB files, 5 backups)
+- Colored console output for easy debugging
+- Separate logs for app, errors, and agents
+- Performance tracking and metrics
 
 ## Key Features
 
 ### ✨ Core Capabilities
 
-- **Multi-Provider LLM Support**: Azure AI, Google Gemini, AWS Bedrock
+- **🤖 Multi-Agent AI System**: LlamaIndex-powered intelligent agents with specialized expertise
+- **Multi-Provider LLM Support**: Azure OpenAI, Google Gemini, AWS Bedrock
+- **Intelligent Query Routing**: Automatic routing to the most appropriate specialist agent
 - **Unified Document Processing**: IBM Granite-Docling for consistent extraction across all formats
 - **Password-Protected Files**: Support for encrypted PDFs and other password-protected documents
 - **Semantic Search**: pgvector-based vector database for intelligent document retrieval
 - **File-in-Context Only**: All responses based solely on uploaded documents
 - **Runtime Credentials**: No storage of sensitive credentials
+- **Comprehensive Logging**: Multi-level logging with rotation and performance tracking
 - **Conversation Management**: Maintains chat history with audit logging
 - **Pre-built Analytics**: Variance, trend, and ratio analysis templates
 - **Comprehensive Audit Trail**: Track all queries and provider usage
@@ -27,6 +46,113 @@ The Financial Report Analysis System is an AI-powered platform for analyzing con
 - DOCX - using IBM Granite-Docling
 
 **Note**: All document processing now uses IBM Granite-Docling for consistent, high-quality extraction across all formats.
+
+## 🏗️ Multi-Agent Architecture
+
+### Agent System
+
+The system uses specialized AI agents that collaborate to provide comprehensive financial analysis:
+
+```
+User Query
+    ↓
+Query Router Agent (Analyzes intent)
+    ↓
+┌─────────────────┬──────────────────┬────────────────────┐
+│  Document Agent │  Metrics Agent   │   Trend Agent      │
+│  (Search docs)  │  (Calculate)     │   (Analyze trends) │
+└─────────────────┴──────────────────┴────────────────────┘
+    ↓
+Agent Orchestrator (Coordinates & combines results)
+    ↓
+Unified Response with Agent Attribution
+```
+
+### Specialized Agents
+
+#### 1. 📄 Document Analysis Agent
+- **Purpose**: Searches and extracts information from financial documents
+- **Expertise**: Understanding document structure (balance sheets, income statements, cash flow)
+- **Tools**:
+  - `search_documents`: Semantic search across uploaded reports
+  - `extract_section`: Extract specific sections from documents
+  - `list_available_reports`: Show all indexed reports
+- **Use Cases**: "What was the revenue in Q3?", "Show me the balance sheet"
+
+#### 2. 📊 Financial Metrics Agent
+- **Purpose**: Calculates financial ratios and metrics
+- **Expertise**: Liquidity, profitability, leverage, efficiency ratios
+- **Tools**:
+  - `calculate_ratio`: Generic ratio calculation
+  - `calculate_liquidity_ratios`: Current ratio, quick ratio, cash ratio
+  - `calculate_profitability_ratios`: ROA, ROE, profit margins
+  - `calculate_leverage_ratios`: Debt-to-equity, interest coverage
+- **Use Cases**: "Calculate the current ratio", "What's the ROE?"
+
+#### 3. 📈 Trend Analysis Agent
+- **Purpose**: Identifies trends and patterns in financial data
+- **Expertise**: Growth trends, variance analysis, seasonal patterns
+- **Tools**:
+  - `analyze_growth_trend`: Track metrics over time
+  - `compare_periods`: YoY, QoQ, MoM comparisons
+  - `identify_variance`: Actual vs budget analysis
+  - `seasonal_analysis`: Detect quarterly patterns
+- **Use Cases**: "Show revenue trend over 4 quarters", "Compare YoY growth"
+
+#### 4. 🧭 Query Router Agent
+- **Purpose**: Routes queries to the most appropriate specialist
+- **Expertise**: Intent classification and agent selection
+- **Logic**: Keyword matching and context analysis
+- **Use Cases**: Automatically determines which agent handles each query
+
+#### 5. 🎯 Agent Orchestrator
+- **Purpose**: Coordinates all agents and maintains conversation context
+- **Features**:
+  - Single-agent execution for simple queries
+  - Multi-agent collaboration for complex queries
+  - Conversation history management
+  - Performance tracking
+
+### Enhanced Logging System
+
+#### Log Files (in `logs/` directory)
+
+- **app.log**: Complete application log with all events
+- **error.log**: Errors and critical issues only
+- **agents.log**: Agent-specific operations and decisions
+
+#### Logging Features
+
+- **Structured Logging**: JSON and text formats
+- **Log Rotation**: Automatic rotation (10MB files, 5 backups)
+- **Colored Console Output**: Easy-to-read colored logs (DEBUG=cyan, INFO=green, WARNING=yellow, ERROR=red, CRITICAL=magenta)
+- **Performance Tracking**: Built-in timing decorators
+- **Context Logging**: Session, user, and query metadata
+- **Third-party Suppression**: Quiets verbose libraries
+
+#### Log Levels
+
+Configure via environment variable:
+```bash
+export LOG_LEVEL=DEBUG  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+```
+
+#### Viewing Logs
+
+```bash
+# Real-time monitoring
+tail -f logs/app.log
+
+# View errors only
+tail -f logs/error.log
+
+# View agent operations
+tail -f logs/agents.log
+
+# Search for specific patterns
+grep "ERROR" logs/app.log
+grep "agent.document" logs/agents.log
+```
 
 ## Architecture
 
@@ -60,6 +186,11 @@ The Financial Report Analysis System is an AI-powered platform for analyzing con
         └─────────────┬──────────────┘
                       │
         ┌─────────────▼──────────────┐
+        │   LlamaIndex Multi-Agent   │
+        │   System (5 Agents)        │
+        └─────────────┬──────────────┘
+                      │
+        ┌─────────────▼──────────────┐
         │ IBM Granite-Docling        │
         │ Document Processor         │
         │ (All formats unified)      │
@@ -68,15 +199,6 @@ The Financial Report Analysis System is an AI-powered platform for analyzing con
         ┌─────────────▼──────────────┐
         │  Embedding Service         │
         │  with pgvector             │
-        └─────────────┬──────────────┘
-                      │
-        ┌─────────────▼──────────────┐
-        │   pgvector Database        │
-        │  (PostgreSQL + Vector)     │
-        └────────────────────────────┘
-```
-        │  Document Processing       │
-        │  & Embedding Service       │
         └─────────────┬──────────────┘
                       │
         ┌─────────────▼──────────────┐
@@ -212,46 +334,168 @@ python main.py
 
 ### 1️⃣ Configure Credentials
 
-1. Go to **Credentials Tab**
+1. Go to **🔐 Credentials Tab**
 2. Select your AI provider:
-   - **Azure AI**: Provide API Key, Endpoint, Model name
-   - **Google Gemini**: Provide API Key, Model name
-   - **AWS Bedrock**: Provide Access Key, Secret Key, Region, Model
-3. Click **Validate & Save Credentials**
-4. Credentials are stored in memory for the current session only
+   - **Azure OpenAI**: Provide API Key, Endpoint, Model name (gpt-4, gpt-35-turbo, gpt-4-turbo)
+   - **Google Gemini**: Provide API Key, Model name (gemini-pro, gemini-pro-vision)
+   - **AWS Bedrock**: Provide Access Key, Secret Key, Region, Model (Claude 3 models)
+3. Click **"Validate & Initialize Multi-Agent System"**
+4. Wait for confirmation: "✅ Multi-Agent System: Initialized"
+5. Credentials are stored in memory for the current session only (never persisted)
 
 ### 2️⃣ Upload Financial Reports
 
-1. Go to **Reports Tab**
+1. Go to **📄 Reports Tab**
 2. Upload PDF, Excel, CSV, JSON, or DOCX files
-3. System automatically:
-   - Extracts text and tables
-   - Chunks document into semantic segments
+3. **For password-protected files**: Enter password in the password field
+4. Click **"📤 Upload Report"**
+5. System automatically:
+   - Extracts text and tables using IBM Docling
+   - Chunks document into semantic segments (1000 chars, 200 overlap)
    - Generates embeddings using selected provider
-   - Stores in pgvector database
-4. Monitor progress in status indicator
+   - Stores in pgvector database with metadata
+6. Monitor progress: You'll see "✅ Report uploaded successfully!" with details
 
-### 3️⃣ Query Reports via Chat
+### 3️⃣ Query Reports via Chat (Multi-Agent)
 
-1. Go to **Chat Tab**
-2. Ask natural language questions about your reports
-3. System automatically:
-   - Generates query embedding
-   - Searches for relevant document sections
-   - Generates response using LLM with context
-   - Displays source citations
-4. Maintain conversation history across queries
+1. Go to **💬 Chat (Multi-Agent) Tab**
+2. **Ensure "Use Multi-Agent System" is checked** (recommended)
+3. Ask natural language questions about your reports
+4. System automatically:
+   - Analyzes your query intent
+   - Routes to the appropriate specialist agent
+   - Executes agent tools to gather information
+   - Generates intelligent response with context
+   - Displays response with agent attribution
+5. Conversation history is maintained across queries
+6. Each response shows which agent handled it
 
-### 4️⃣ Run BI Analytics
+**Example Queries:**
+- *"What was the revenue in Q3 2024?"* → Routed to Document Agent
+- *"Calculate the current ratio"* → Routed to Metrics Agent
+- *"Show me the revenue trend over the last 4 quarters"* → Routed to Trend Agent
+- *"Compare profit margins year-over-year"* → May use multiple agents
 
-1. Go to **BI Bot Tab**
-2. Select analysis type:
-   - **Variance Analysis**: Identify deviations from expectations
-   - **Trend Analysis**: Track metrics over time
-   - **Ratio Analysis**: Calculate financial ratios
-3. System generates analysis based on uploaded reports
+### 4️⃣ Configure Agents (Optional)
+
+Agents can be configured via `config/agents.json`:
+
+```json
+{
+  "document_analysis": {
+    "enabled": true,
+    "max_iterations": 10,
+    "temperature": 0.7
+  },
+  "financial_metrics": {
+    "enabled": true,
+    "max_iterations": 8,
+    "temperature": 0.5
+  },
+  "trend_analysis": {
+    "enabled": true,
+    "max_iterations": 8,
+    "temperature": 0.6
+  }
+}
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Key environment variables in `.env`:
+
+```bash
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/financial_reports
+
+# Application
+LOG_LEVEL=INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+MAX_FILE_SIZE_MB=50
+UPLOAD_DIR=uploads
+APP_PORT=7860
+
+# Vector Search
+EMBEDDING_DIMENSION=1536
+SIMILARITY_THRESHOLD=0.7
+MAX_CHUNKS_PER_QUERY=10
+```
+
+### Agent Configuration
+
+Create `config/agents.json` to customize agent behavior:
+
+```json
+{
+  "document_analysis": {
+    "name": "document_analysis",
+    "description": "Analyzes financial documents",
+    "enabled": true,
+    "max_iterations": 10,
+    "temperature": 0.7
+  },
+  "financial_metrics": {
+    "enabled": true,
+    "max_iterations": 8,
+    "temperature": 0.5
+  },
+  "trend_analysis": {
+    "enabled": true,
+    "max_iterations": 8,
+    "temperature": 0.6
+  }
+}
+```
 
 ## API Reference
+
+### Multi-Agent System
+
+#### `AgentOrchestrator`
+```python
+from agents import AgentOrchestrator
+
+# Initialize orchestrator
+orchestrator = AgentOrchestrator(
+    llm=llm,
+    embedding_service=embedding_service,
+    session_maker=session_maker
+)
+
+# Execute query with automatic routing
+result = orchestrator.execute_query(
+    query="What was the revenue in Q3?",
+    context={},
+    use_routing=True
+)
+
+# Execute with multiple agents
+result = orchestrator.execute_multi_agent_query(
+    query="Analyze revenue and calculate metrics",
+    agent_names=["document_analysis", "financial_metrics"]
+)
+
+# Get conversation history
+history = orchestrator.get_conversation_history()
+
+# Reset conversation
+orchestrator.reset_conversation()
+```
+
+#### `BaseFinancialAgent`
+```python
+from agents.base_agent import BaseFinancialAgent
+
+# All agents inherit from this base class
+class CustomAgent(BaseFinancialAgent):
+    def get_system_prompt(self) -> str:
+        return "Your custom system prompt"
+    
+    def _create_tools(self) -> List[FunctionTool]:
+        # Define agent-specific tools
+        pass
+```
 
 ### Multi-Provider LLM Classes
 
@@ -448,11 +692,45 @@ query = session.query(Chunk).filter(
 ).all()
 ```
 
-## Troubleshooting
+## 🐛 Troubleshooting
+
+### Multi-Agent System Issues
+
+#### 1. "Multi-Agent System: Not initialized"
+**Symptom**: Chat returns this error message
+**Solution**: 
+- Go to Credentials tab
+- Validate credentials again
+- Click "Validate & Initialize Multi-Agent System"
+- Check logs/app.log for detailed errors
+
+#### 2. "Import llama_index errors"
+**Symptom**: Application fails to start with import errors
+**Solution**:
+```bash
+pip install -r requirements.txt --upgrade
+pip install llama-index llama-index-core --upgrade
+```
+
+#### 3. Agents not responding or timing out
+**Symptom**: Queries hang or timeout
+**Solution**:
+- Check `logs/agents.log` for detailed error messages
+- Reduce `max_iterations` in `config/agents.json`
+- Check API rate limits for your provider
+- Verify network connectivity to LLM provider
+
+#### 4. Wrong agent handling query
+**Symptom**: Query routed to incorrect agent
+**Solution**:
+- Query router uses keyword matching
+- Use more specific keywords in your query
+- Check `logs/agents.log` to see routing decisions
+- You can disable routing by unchecking "Use Multi-Agent System"
 
 ### Common Issues
 
-#### 1. Connection to Database Failed
+#### 5. Connection to Database Failed
 ```bash
 # Check PostgreSQL container is running
 docker-compose ps
@@ -464,19 +742,19 @@ echo $DATABASE_URL
 psql postgresql://finuser:pass@localhost:5432/financial_reports
 ```
 
-#### 2. Embedding Generation Fails
+#### 6. Embedding Generation Fails
 - Verify credentials are entered correctly
 - Check API quotas/limits for provider
 - Ensure text is not empty
 - Check network connectivity to API endpoint
 
-#### 3. Semantic Search Returns No Results
+#### 7. Semantic Search Returns No Results
 - Lower `SIMILARITY_THRESHOLD` in .env
 - Ensure reports are indexed (`processing_status = ready`)
 - Check that embeddings were generated successfully
 - Verify query is related to document content
 
-#### 4. Out of Memory
+#### 8. Out of Memory
 - Reduce `MAX_CHUNKS_PER_QUERY`
 - Reduce `EMBEDDING_DIMENSION` (though this reduces accuracy)
 - Use smaller batch sizes for embedding generation
@@ -546,15 +824,95 @@ PostgreSQL replication:
 4. **Selective Indexing**: Only index relevant documents
 5. **Compression**: Compress embeddings before storage
 
+## 📝 Logging & Monitoring
+
+### Log Files
+
+All logs are in the `logs/` directory:
+
+- **app.log**: Complete application log (all levels)
+- **error.log**: Errors and critical issues only
+- **agents.log**: Agent-specific operations and decisions
+
+### Monitoring Commands
+
+```bash
+# Real-time app monitoring
+tail -f logs/app.log
+
+# Monitor errors only
+tail -f logs/error.log
+
+# Monitor agent decisions
+tail -f logs/agents.log
+
+# Search for specific patterns
+grep "ERROR" logs/app.log
+grep "agent.document" logs/agents.log | tail -20
+grep "processing_time" logs/app.log
+
+# Count errors in last hour
+grep "ERROR" logs/app.log | grep "$(date +%Y-%m-%d\ %H)" | wc -l
+```
+
+### Debug Mode
+
+Enable verbose logging:
+
+```bash
+export LOG_LEVEL=DEBUG
+python main.py
+```
+
+## 🤝 Contributing
+
+### Adding New Agents
+
+1. Create new agent file in `agents/` directory
+2. Inherit from `BaseFinancialAgent`
+3. Implement required methods:
+
+```python
+from agents.base_agent import BaseFinancialAgent
+from llama_index.core.tools import FunctionTool
+
+class MyCustomAgent(BaseFinancialAgent):
+    def __init__(self, llm):
+        tools = self._create_tools()
+        super().__init__(
+            name="my_custom_agent",
+            description="Does custom analysis",
+            llm=llm,
+            tools=tools
+        )
+    
+    def _create_tools(self):
+        def my_tool(param: str) -> str:
+            """Tool description."""
+            return f"Result: {param}"
+        
+        return [FunctionTool.from_defaults(fn=my_tool)]
+    
+    def get_system_prompt(self) -> str:
+        return "You are a custom agent..."
+```
+
+4. Register agent in `AgentOrchestrator`
+5. Add to agent configuration file
+6. Update query router keywords
+
 ## Production Checklist
 
+### Infrastructure
 - [ ] SSL certificates configured for nginx
 - [ ] Database backups automated (daily)
 - [ ] Monitoring setup (Prometheus, Grafana)
-- [ ] Log aggregation (ELK, Datadog)
+- [ ] Log aggregation (ELK, Datadog, CloudWatch)
 - [ ] Alerting for errors and performance degradation
 - [ ] Load testing completed (at least 10 concurrent users)
 - [ ] Disaster recovery plan documented
+
+### Security
 - [ ] Credentials rotation policy implemented
 - [ ] Audit logs retention policy set (e.g., 1 year)
 - [ ] Rate limiting tuned for expected load
@@ -562,18 +920,55 @@ PostgreSQL replication:
 - [ ] Connection pooling configured
 - [ ] Graceful shutdown procedures tested
 
+### Multi-Agent System
+- [ ] Agent configurations reviewed and optimized
+- [ ] Agent performance benchmarked
+- [ ] Query routing accuracy tested
+- [ ] Agent-specific monitoring configured
+- [ ] Agent error handling tested
+- [ ] Agent iteration limits tuned
+
+## 📚 Additional Documentation
+
+- **[MIGRATION_SUMMARY.md](MIGRATION_SUMMARY.md)**: Detailed migration guide to v2.0
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: System architecture deep dive
+- **[INDEX.md](INDEX.md)**: Code navigation and file structure
+- **Agent Source Code**: See `agents/` directory for individual agents
+
+## 🙏 Acknowledgments
+
+- **LlamaIndex**: Multi-agent framework and orchestration
+- **IBM Docling**: Advanced document processing
+- **pgvector**: High-performance vector similarity search
+- **Gradio**: Interactive web interface
+- **OpenAI, Google, AWS**: LLM provider APIs
+
 ## Support & Contribution
 
 For issues, feature requests, or contributions:
 
 1. Check existing documentation
-2. Review audit logs for errors
-3. Check provider API quotas
-4. Verify environment configuration
-5. Contact system administrator
+2. Review logs in `logs/` directory
+3. Check `logs/agents.log` for agent-specific issues
+4. Review audit logs for errors
+5. Check provider API quotas
+6. Verify environment configuration
+7. Test with DEBUG logging enabled
+8. Contact system administrator
+
+## Technology Stack
+
+- **Frontend**: Gradio 4.44
+- **AI Framework**: LlamaIndex 0.10
+- **Backend**: Python 3.10+
+- **Database**: PostgreSQL 16 + pgvector
+- **LLM Providers**: Azure OpenAI, Google Gemini, AWS Bedrock
+- **Document Processing**: IBM Docling (Granite)
+- **Logging**: Python logging with custom formatters
+- **Orchestration**: Docker Compose
 
 ---
 
-**Last Updated**: October 2025
-**Version**: 1.0
+**Version**: 2.0.0 (Multi-Agent)  
+**Last Updated**: November 2025  
 **License**: Proprietary
