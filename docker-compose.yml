@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: financial_analyzer_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-finuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
+      POSTGRES_DB: ${POSTGRES_DB:-financial_analyzer}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - financial_network
+
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: financial_analyzer_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - financial_network
+
+  # WrenAI Service
+  wrenai:
+    image: ghcr.io/canner/wren-ai-service:latest
+    container_name: financial_analyzer_wrenai
+    ports:
+      - "3000:3000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-finuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
+      POSTGRES_DB: ${POSTGRES_DB:-financial_analyzer}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - financial_network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: financial_analyzer_backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-finuser}:${POSTGRES_PASSWORD:-securepassword}@postgres:5432/${POSTGRES_DB:-financial_analyzer}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      SES_SENDER_EMAIL: ${SES_SENDER_EMAIL}
+      SECRET_KEY: ${SECRET_KEY}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+    volumes:
+      - ./:/app
+      - /tmp/financial_uploads:/tmp/financial_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks:
+      - financial_network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Gradio UI
+  gradio:
+    build:
+      context: .
+      dockerfile: Dockerfile.gradio
+    container_name: financial_analyzer_gradio
+    ports:
+      - "7860:7860"
+    environment:
+      BACKEND_URL: http://backend:8000
+      WRENAI_URL: http://wrenai:3000
+    volumes:
+      - ./:/app
+    depends_on:
+      - backend
+    networks:
+      - financial_network
+    command: python gradio_app.py
+
+volumes:
+  postgres_data:
+  qdrant_data:
+
+networks:
+  financial_network:
+    driver: bridge
