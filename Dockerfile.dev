@@ -1,0 +1,208 @@
+FROM ubuntu:22.04
+
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # PostgreSQL 16
+    wget \
+    gnupg2 \
+    lsb-release \
+    # Python 3.11
+    software-properties-common \
+    # Build tools
+    build-essential \
+    # Utilities
+    curl \
+    vim \
+    nano \
+    git \
+    # Networking
+    net-tools \
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PostgreSQL 16
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && \
+    apt-get install -y postgresql-16 postgresql-contrib-16 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python 3.11
+RUN add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get update && \
+    apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3.11-venv \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    update-alternatives --set python3 /usr/bin/python3.11 && \
+    python3 -m pip install --upgrade pip
+
+# Install Qdrant
+WORKDIR /opt
+RUN curl -L https://github.com/qdrant/qdrant/releases/download/v1.7.3/qdrant-x86_64-unknown-linux-gnu.tar.gz -o qdrant.tar.gz && \
+    tar -xzf qdrant.tar.gz && \
+    rm qdrant.tar.gz && \
+    chmod +x qdrant
+
+# Configure PostgreSQL
+USER postgres
+
+# Initialize PostgreSQL cluster
+RUN /usr/lib/postgresql/16/bin/initdb -D /var/lib/postgresql/16/main
+
+# Configure PostgreSQL to listen on all interfaces
+RUN echo "host all all 0.0.0.0/0 md5" >> /var/lib/postgresql/16/main/pg_hba.conf && \
+    echo "listen_addresses='*'" >> /var/lib/postgresql/16/main/postgresql.conf
+
+# Start PostgreSQL temporarily to create database and user
+RUN /usr/lib/postgresql/16/bin/pg_ctl -D /var/lib/postgresql/16/main -l /tmp/logfile start && \
+    sleep 5 && \
+    psql -c "CREATE USER finuser WITH SUPERUSER PASSWORD 'securepassword';" && \
+    psql -c "CREATE DATABASE financial_analyzer OWNER finuser;" && \
+    /usr/lib/postgresql/16/bin/pg_ctl -D /var/lib/postgresql/16/main stop
+
+# Switch back to root
+USER root
+
+# Create application directory
+WORKDIR /app
+
+# Copy and run database initialization script
+COPY init.sql /docker-entrypoint-initdb.d/init.sql
+
+# Create startup script
+RUN cat > /start-services.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "=========================================="
+echo "Starting Financial Analyzer Dev Container"
+echo "=========================================="
+echo ""
+
+# Start PostgreSQL
+echo "🐘 Starting PostgreSQL 16..."
+sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /var/lib/postgresql/16/main -l /var/log/postgresql/postgresql.log start
+sleep 3
+
+# Check PostgreSQL status
+if sudo -u postgres psql -c "SELECT version();" > /dev/null 2>&1; then
+    echo "✅ PostgreSQL is running"
+    echo "   - Host: localhost"
+    echo "   - Port: 5432"
+    echo "   - Database: financial_analyzer"
+    echo "   - User: finuser"
+    echo "   - Password: securepassword"
+else
+    echo "❌ PostgreSQL failed to start"
+    exit 1
+fi
+
+# Initialize database if needed
+echo ""
+echo "📋 Initializing database schema..."
+if [ -f /docker-entrypoint-initdb.d/init.sql ]; then
+    sudo -u postgres psql -U finuser -d financial_analyzer -f /docker-entrypoint-initdb.d/init.sql > /dev/null 2>&1 || echo "Schema already initialized"
+    echo "✅ Database schema ready"
+fi
+
+# Start Qdrant
+echo ""
+echo "🔍 Starting Qdrant..."
+cd /opt
+./qdrant --config-path /app/qdrant-config.yaml > /var/log/qdrant.log 2>&1 &
+sleep 3
+
+# Check Qdrant status
+if curl -s http://localhost:6333/collections > /dev/null 2>&1; then
+    echo "✅ Qdrant is running"
+    echo "   - API: http://localhost:6333"
+    echo "   - Dashboard: http://localhost:6333/dashboard"
+    echo "   - gRPC: localhost:6334"
+else
+    echo "❌ Qdrant failed to start"
+    exit 1
+fi
+
+echo ""
+echo "=========================================="
+echo "🎉 All services started successfully!"
+echo "=========================================="
+echo ""
+echo "📊 Service Endpoints:"
+echo "   PostgreSQL:  localhost:5432"
+echo "   Qdrant API:  http://localhost:6333"
+echo "   Qdrant UI:   http://localhost:6333/dashboard"
+echo ""
+echo "🔗 Connection Strings:"
+echo "   PostgreSQL: postgresql://finuser:securepassword@localhost:5432/financial_analyzer"
+echo "   Qdrant:     localhost:6333"
+echo ""
+echo "📝 Logs:"
+echo "   PostgreSQL: /var/log/postgresql/postgresql.log"
+echo "   Qdrant:     /var/log/qdrant.log"
+echo ""
+echo "💡 Usage:"
+echo "   - Connect to PostgreSQL: psql -U finuser -d financial_analyzer"
+echo "   - Check Qdrant: curl http://localhost:6333/collections"
+echo "   - View logs: tail -f /var/log/postgresql/postgresql.log"
+echo ""
+echo "Press Ctrl+C to stop all services..."
+
+# Keep container running
+tail -f /dev/null
+EOF
+
+RUN chmod +x /start-services.sh
+
+# Create Qdrant configuration
+RUN cat > /app/qdrant-config.yaml << 'EOF'
+service:
+  host: 0.0.0.0
+  http_port: 6333
+  grpc_port: 6334
+
+storage:
+  storage_path: /var/lib/qdrant/storage
+  snapshots_path: /var/lib/qdrant/snapshots
+
+  # Optimize for development
+  on_disk_payload: false
+
+log_level: INFO
+
+# Performance settings for development
+hnsw_config:
+  m: 16
+  ef_construct: 100
+  full_scan_threshold: 10000
+
+# Collections auto-creation
+collections:
+  # Will be created dynamically by application
+EOF
+
+# Create directories
+RUN mkdir -p /var/lib/qdrant/storage /var/lib/qdrant/snapshots /var/log/postgresql && \
+    chown -R postgres:postgres /var/log/postgresql && \
+    chmod 755 /var/lib/qdrant
+
+# Expose ports
+EXPOSE 5432 6333 6334
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD pg_isready -U finuser -d financial_analyzer && curl -f http://localhost:6333/ || exit 1
+
+# Start services
+CMD ["/start-services.sh"]

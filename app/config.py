@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore extra environment variables (like Docker-specific ones)
 
     @property
     def max_file_size_bytes(self) -> int:

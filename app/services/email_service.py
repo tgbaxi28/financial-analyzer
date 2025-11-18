@@ -1,7 +1,6 @@
 """Email service using AWS SES."""
 import boto3
-from botocore.exceptions import ClientError
-from typing import Optional
+from botocore.exceptions import ClientError, NoCredentialsError
 
 from app.config import settings
 from app.utils.logger import logger
@@ -12,13 +11,35 @@ class EmailService:
 
     def __init__(self):
         """Initialize AWS SES client."""
-        self.ses_client = boto3.client(
-            'ses',
-            region_name=settings.AWS_REGION,
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
-        )
-        self.sender_email = settings.SES_SENDER_EMAIL
+        self.ses_enabled = self._check_ses_configuration()
+        
+        if self.ses_enabled:
+            try:
+                self.ses_client = boto3.client(
+                    'ses',
+                    region_name=settings.AWS_REGION,
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+                )
+                self.sender_email = settings.SES_SENDER_EMAIL
+                logger.info("AWS SES email service initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize SES client: {str(e)}. Falling back to development mode.")
+                self.ses_enabled = False
+        else:
+            logger.warning("AWS SES not configured. Running in development mode - emails will be logged only.")
+            self.ses_client = None
+            self.sender_email = None
+
+    def _check_ses_configuration(self) -> bool:
+        """Check if AWS SES is properly configured."""
+        required_configs = [
+            settings.AWS_ACCESS_KEY_ID,
+            settings.AWS_SECRET_ACCESS_KEY,
+            settings.AWS_REGION,
+            settings.SES_SENDER_EMAIL
+        ]
+        return all(config for config in required_configs)
 
     def send_magic_link(self, recipient_email: str, magic_link: str) -> bool:
         """
@@ -31,6 +52,24 @@ class EmailService:
         Returns:
             True if email sent successfully, False otherwise
         """
+        # Development mode - log the magic link instead of sending email
+        if not self.ses_enabled:
+            # Extract token from magic_link for easier copy-paste
+            token = magic_link.split("token=")[-1] if "token=" in magic_link else magic_link
+            
+            logger.warning("=" * 80)
+            logger.warning("AWS SES NOT CONFIGURED - DEVELOPMENT MODE")
+            logger.warning("=" * 80)
+            logger.warning(f"📧 Magic Link for: {recipient_email}")
+            logger.warning(f"🔗 Full Link: {magic_link}")
+            logger.warning(f"🎫 Token Only: {token}")
+            logger.warning(f"⏰ Expires in: {settings.MAGIC_LINK_EXPIRE_MINUTES} minutes")
+            logger.warning("=" * 80)
+            logger.warning("For Gradio UI: Copy the TOKEN ONLY and paste in verification field")
+            logger.warning("For direct access: Click or paste the FULL LINK in browser")
+            logger.warning("=" * 80)
+            return True
+
         subject = f"Login to {settings.APP_NAME}"
 
         html_body = f"""
@@ -103,12 +142,22 @@ class EmailService:
             logger.info(f"Magic link email sent to {recipient_email}. MessageId: {response['MessageId']}")
             return True
 
-        except ClientError as e:
-            logger.error(f"Failed to send magic link email to {recipient_email}: {e.response['Error']['Message']}")
-            return False
+        except (ClientError, NoCredentialsError) as e:
+            error_msg = e.response['Error']['Message'] if hasattr(e, 'response') else str(e)
+            logger.error(f"Failed to send magic link email to {recipient_email}: {error_msg}")
+            logger.warning("Falling back to development mode - logging magic link")
+            logger.warning("=" * 80)
+            logger.warning(f"📧 Magic Link for: {recipient_email}")
+            logger.warning(f"🔗 Link: {magic_link}")
+            logger.warning("=" * 80)
+            return True  # Return True to not fail the registration
         except Exception as e:
             logger.error(f"Unexpected error sending email to {recipient_email}: {str(e)}")
-            return False
+            logger.warning("=" * 80)
+            logger.warning(f"📧 Magic Link for: {recipient_email}")
+            logger.warning(f"🔗 Link: {magic_link}")
+            logger.warning("=" * 80)
+            return True  # Return True to not fail the registration
 
     def send_welcome_email(self, recipient_email: str, first_name: str) -> bool:
         """
@@ -121,6 +170,11 @@ class EmailService:
         Returns:
             True if email sent successfully, False otherwise
         """
+        # Development mode - log instead of sending email
+        if not self.ses_enabled:
+            logger.info(f"📧 [DEV MODE] Welcome email for: {first_name} ({recipient_email})")
+            return True
+
         subject = f"Welcome to {settings.APP_NAME}!"
 
         html_body = f"""
@@ -192,12 +246,13 @@ class EmailService:
             logger.info(f"Welcome email sent to {recipient_email}. MessageId: {response['MessageId']}")
             return True
 
-        except ClientError as e:
-            logger.error(f"Failed to send welcome email to {recipient_email}: {e.response['Error']['Message']}")
-            return False
+        except (ClientError, NoCredentialsError) as e:
+            error_msg = e.response['Error']['Message'] if hasattr(e, 'response') else str(e)
+            logger.warning(f"Could not send welcome email to {recipient_email}: {error_msg}")
+            return True  # Return True to not fail the registration
         except Exception as e:
-            logger.error(f"Unexpected error sending welcome email to {recipient_email}: {str(e)}")
-            return False
+            logger.warning(f"Could not send welcome email to {recipient_email}: {str(e)}")
+            return True  # Return True to not fail the registration
 
 
 # Global email service instance

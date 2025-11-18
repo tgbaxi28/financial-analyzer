@@ -17,11 +17,16 @@ class QdrantService:
     def __init__(self):
         """Initialize Qdrant client."""
         try:
-            self.client = QdrantClient(
-                host=settings.QDRANT_HOST,
-                port=settings.QDRANT_PORT,
-                api_key=settings.QDRANT_API_KEY
-            )
+            # Only pass api_key if it's set (not empty)
+            client_args = {
+                "host": settings.QDRANT_HOST,
+                "port": settings.QDRANT_PORT
+            }
+            if settings.QDRANT_API_KEY:
+                client_args["api_key"] = settings.QDRANT_API_KEY
+                client_args["https"] = True  # Use HTTPS with API key
+
+            self.client = QdrantClient(**client_args)
             logger.info(f"Qdrant client initialized: {settings.QDRANT_HOST}:{settings.QDRANT_PORT}")
         except Exception as e:
             logger.error(f"Failed to initialize Qdrant client: {str(e)}")

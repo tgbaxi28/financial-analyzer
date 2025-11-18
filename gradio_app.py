@@ -21,7 +21,7 @@ session_state = {
 async def register_user(email: str, first_name: str, last_name: str) -> str:
     """Register a new user."""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{BACKEND_URL}/auth/register",
                 json={
@@ -36,6 +36,10 @@ async def register_user(email: str, first_name: str, last_name: str) -> str:
             else:
                 return f"❌ Registration failed: {response.json().get('detail', 'Unknown error')}"
 
+    except httpx.ConnectError:
+        return f"❌ Cannot connect to backend server at {BACKEND_URL}. Please ensure the backend is running."
+    except httpx.TimeoutException:
+        return f"❌ Request timed out. Please try again."
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
@@ -43,7 +47,7 @@ async def register_user(email: str, first_name: str, last_name: str) -> str:
 async def login_user(email: str) -> str:
     """Request magic link for login."""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{BACKEND_URL}/auth/login",
                 json={"email": email}
@@ -54,11 +58,15 @@ async def login_user(email: str) -> str:
             else:
                 return f"❌ Login failed: {response.json().get('detail', 'Unknown error')}"
 
+    except httpx.ConnectError:
+        return f"❌ Cannot connect to backend server at {BACKEND_URL}. Please ensure the backend is running."
+    except httpx.TimeoutException:
+        return f"❌ Request timed out. Please try again."
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
 
-async def verify_magic_link(token: str) -> Tuple[str, str]:
+async def verify_magic_link(token: str):
     """Verify magic link token."""
     try:
         async with httpx.AsyncClient() as client:
@@ -76,13 +84,69 @@ async def verify_magic_link(token: str) -> Tuple[str, str]:
 
                 return (
                     f"✅ Welcome, {data['user']['first_name']}!",
-                    f"Logged in as: {data['user']['email']}"
+                    f"Logged in as: {data['user']['email']}",
+                    gr.update(visible=True),   # Show user info
+                    gr.update(visible=True),   # Show logout button
+                    gr.update(visible=True),   # Show upload tab
+                    gr.update(visible=True),   # Show chat tab
+                    gr.update(visible=True)    # Show dashboard tab
                 )
             else:
-                return f"❌ Verification failed: {response.json().get('detail', 'Unknown error')}", ""
+                return (
+                    f"❌ Verification failed: {response.json().get('detail', 'Unknown error')}", 
+                    "",
+                    gr.update(visible=False),
+                    gr.update(visible=False),
+                    gr.update(visible=False),
+                    gr.update(visible=False),
+                    gr.update(visible=False)
+                )
 
     except Exception as e:
-        return f"❌ Error: {str(e)}", ""
+        return (
+            f"❌ Error: {str(e)}", 
+            "",
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False)
+        )
+
+
+def show_registration_form():
+    """Show registration form."""
+    return (
+        gr.update(visible=False),  # Hide login form    
+        gr.update(visible=True)    # Show registration form
+    )
+
+
+def show_login_form():
+    """Show login form."""
+    return (
+        gr.update(visible=True),   # Show login form
+        gr.update(visible=False)   # Hide registration form
+    )
+
+
+def logout():
+    """Logout user and reset session."""
+    session_state["access_token"] = None
+    session_state["user"] = None
+    session_state["current_owner_id"] = None
+    session_state["current_owner_type"] = "user"
+    
+    return (
+        "",  # Clear user info
+        gr.update(visible=False),  # Hide user info display
+        gr.update(visible=False),  # Hide logout button
+        gr.update(visible=False),  # Hide upload tab
+        gr.update(visible=False),  # Hide chat tab
+        gr.update(visible=False),  # Hide dashboard tab
+        gr.update(visible=True),   # Show login form
+        gr.update(visible=False)   # Hide registration form
+    )
 
 
 async def upload_document(file, owner_type: str, password: Optional[str]) -> str:
@@ -194,55 +258,88 @@ with gr.Blocks(title="Financial Analyzer", theme=gr.themes.Soft()) as app:
     gr.Markdown("# 💰 Financial Analyzer")
     gr.Markdown("AI-powered financial document analysis and portfolio tracking")
 
-    with gr.Tabs():
-        # Authentication Tab
-        with gr.Tab("🔐 Authentication"):
-            gr.Markdown("## Register or Login")
+    # User info and logout button (initially hidden)
+    with gr.Row(visible=False) as user_info_row:
+        with gr.Column(scale=5):
+            user_info_display = gr.Textbox(label="", interactive=False, show_label=False, container=False)
+        with gr.Column(scale=1):
+            logout_btn = gr.Button("🚪 Logout", variant="secondary", size="sm")
 
+    # Authentication Section (initially visible)
+    with gr.Column(visible=True) as auth_section:
+        with gr.Row():
+            gr.HTML("<div style='height: 50px;'></div>")  # Spacer
+        
+        # Login Form (initially visible)
+        with gr.Column(visible=True, scale=1) as login_form:
             with gr.Row():
-                with gr.Column():
-                    gr.Markdown("### Register New Account")
-                    reg_email = gr.Textbox(label="Email", placeholder="your@email.com")
-                    reg_first_name = gr.Textbox(label="First Name")
-                    reg_last_name = gr.Textbox(label="Last Name")
-                    register_btn = gr.Button("Register", variant="primary")
-                    register_output = gr.Textbox(label="Status", interactive=False)
+                with gr.Column(scale=1):
+                    pass  # Left spacer
+                with gr.Column(scale=2):
+                    gr.Markdown("## 🔐 Login to Your Account")
+                    login_email = gr.Textbox(
+                        label="Email Address", 
+                        placeholder="your@email.com",
+                        type="email"
+                    )
+                    login_btn = gr.Button("Send Magic Link", variant="primary", size="lg")
+                    login_output = gr.Textbox(label="Status", interactive=False, visible=False)
+                    
+                    # Magic link verification (shown after sending magic link)
+                    with gr.Column(visible=False) as magic_link_section:
+                        gr.Markdown("### ✉️ Check Your Email")
+                        magic_token = gr.Textbox(
+                            label="Magic Link Token", 
+                            placeholder="Paste the token from your email"
+                        )
+                        verify_btn = gr.Button("Verify & Login", variant="primary")
+                        verify_output = gr.Textbox(label="Status", interactive=False)
+                    
+                    gr.Markdown("---")
+                    with gr.Row():
+                        gr.Markdown("Don't have an account?")
+                        show_register_btn = gr.Button("Register here", variant="link", size="sm")
+                with gr.Column(scale=1):
+                    pass  # Right spacer
+        
+        # Registration Form (initially hidden)
+        with gr.Column(visible=False, scale=1) as registration_form:
+            with gr.Row():
+                with gr.Column(scale=1):
+                    pass  # Left spacer
+                with gr.Column(scale=2):
+                    gr.Markdown("## 📝 Create New Account")
+                    reg_email = gr.Textbox(
+                        label="Email Address", 
+                        placeholder="your@email.com",
+                        type="email"
+                    )
+                    reg_first_name = gr.Textbox(label="First Name", placeholder="John")
+                    reg_last_name = gr.Textbox(label="Last Name", placeholder="Doe")
+                    register_btn = gr.Button("Register", variant="primary", size="lg")
+                    register_output = gr.Textbox(label="Status", interactive=False, visible=False)
+                    
+                    # Magic link verification (shown after registration)
+                    with gr.Column(visible=False) as reg_magic_link_section:
+                        gr.Markdown("### ✉️ Check Your Email")
+                        reg_magic_token = gr.Textbox(
+                            label="Magic Link Token", 
+                            placeholder="Paste the token from your email or terminal logs"
+                        )
+                        reg_verify_btn = gr.Button("Verify & Login", variant="primary")
+                        reg_verify_output = gr.Textbox(label="Status", interactive=False)
+                    
+                    gr.Markdown("---")
+                    with gr.Row():
+                        gr.Markdown("Already have an account?")
+                        show_login_btn = gr.Button("Login here", variant="link", size="sm")
+                with gr.Column(scale=1):
+                    pass  # Right spacer
 
-                with gr.Column():
-                    gr.Markdown("### Login (Existing User)")
-                    login_email = gr.Textbox(label="Email", placeholder="your@email.com")
-                    login_btn = gr.Button("Send Magic Link", variant="primary")
-                    login_output = gr.Textbox(label="Status", interactive=False)
-
-            gr.Markdown("### Verify Magic Link")
-            magic_token = gr.Textbox(label="Magic Link Token", placeholder="Paste token from email")
-            verify_btn = gr.Button("Verify & Login", variant="primary")
-            verify_output = gr.Textbox(label="Status", interactive=False)
-            user_info = gr.Textbox(label="User Info", interactive=False)
-
-            # Register button
-            register_btn.click(
-                fn=register_user,
-                inputs=[reg_email, reg_first_name, reg_last_name],
-                outputs=register_output
-            )
-
-            # Login button
-            login_btn.click(
-                fn=login_user,
-                inputs=[login_email],
-                outputs=login_output
-            )
-
-            # Verify button
-            verify_btn.click(
-                fn=verify_magic_link,
-                inputs=[magic_token],
-                outputs=[verify_output, user_info]
-            )
-
+    # Main application tabs (initially hidden)
+    with gr.Tabs(visible=False) as main_tabs:
         # Document Upload Tab
-        with gr.Tab("📄 Upload Documents"):
+        with gr.Tab("📄 Upload Documents") as upload_tab:
             gr.Markdown("## Upload Financial Documents")
             gr.Markdown("Supported formats: PDF, Excel (XLSX/XLS), CSV, Word (DOCX)")
 
@@ -267,7 +364,7 @@ with gr.Blocks(title="Financial Analyzer", theme=gr.themes.Soft()) as app:
             )
 
         # AI Chat Tab
-        with gr.Tab("💬 AI Chat"):
+        with gr.Tab("💬 AI Chat") as chat_tab:
             gr.Markdown("## Chat with Your Financial Documents")
 
             with gr.Row():
@@ -319,7 +416,7 @@ with gr.Blocks(title="Financial Analyzer", theme=gr.themes.Soft()) as app:
             )
 
         # Dashboard Tab
-        with gr.Tab("📊 Dashboard"):
+        with gr.Tab("📊 Dashboard") as dashboard_tab:
             gr.Markdown("## WrenAI Analytics Dashboard")
             gr.Markdown(f"**Dashboard URL:** [{WRENAI_URL}]({WRENAI_URL})")
             gr.Markdown("""
@@ -334,6 +431,87 @@ with gr.Blocks(title="Financial Analyzer", theme=gr.themes.Soft()) as app:
             """)
 
             gr.HTML(f'<iframe src="{WRENAI_URL}" width="100%" height="800px" frameborder="0"></iframe>')
+
+    # Set up event handlers after all components are defined
+    
+    # Show registration form
+    show_register_btn.click(
+        fn=show_registration_form,
+        inputs=[],
+        outputs=[login_form, registration_form]
+    )
+    
+    # Show login form
+    show_login_btn.click(
+        fn=show_login_form,
+        inputs=[],
+        outputs=[login_form, registration_form]
+    )
+    
+    # Register button
+    async def handle_registration(email, first_name, last_name):
+        """Handle registration and show magic link section."""
+        result = await register_user(email, first_name, last_name)
+        show_magic = "✅" in result
+        return (
+            gr.update(value=result, visible=True),
+            gr.update(visible=show_magic)
+        )
+    
+    register_btn.click(
+        fn=handle_registration,
+        inputs=[reg_email, reg_first_name, reg_last_name],
+        outputs=[register_output, reg_magic_link_section]
+    )
+
+    # Login button
+    async def handle_login(email):
+        """Handle login and show magic link section."""
+        result = await login_user(email)
+        show_magic = "✅" in result
+        return (
+            gr.update(value=result, visible=True),
+            gr.update(visible=show_magic)
+        )
+    
+    login_btn.click(
+        fn=handle_login,
+        inputs=[login_email],
+        outputs=[login_output, magic_link_section]
+    )
+    
+    # Verify button - controls visibility
+    verify_btn.click(
+        fn=verify_magic_link,
+        inputs=[magic_token],
+        outputs=[verify_output, user_info_display, user_info_row, user_info_row, main_tabs, main_tabs, main_tabs]
+    ).then(
+        fn=lambda: gr.update(visible=False),
+        inputs=[],
+        outputs=[auth_section]
+    )
+    
+    # Registration verify button - same functionality
+    reg_verify_btn.click(
+        fn=verify_magic_link,
+        inputs=[reg_magic_token],
+        outputs=[reg_verify_output, user_info_display, user_info_row, user_info_row, main_tabs, main_tabs, main_tabs]
+    ).then(
+        fn=lambda: gr.update(visible=False),
+        inputs=[],
+        outputs=[auth_section]
+    )
+    
+    # Logout button click handler
+    logout_btn.click(
+        fn=logout,
+        inputs=[],
+        outputs=[user_info_display, user_info_row, user_info_row, main_tabs, main_tabs, main_tabs, login_form, registration_form]
+    ).then(
+        fn=lambda: gr.update(visible=True),
+        inputs=[],
+        outputs=[auth_section]
+    )
 
     gr.Markdown("---")
     gr.Markdown("Built with ❤️ | All data is encrypted and secure | PII/PHI protected")

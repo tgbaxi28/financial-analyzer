@@ -1,5 +1,5 @@
 """Authentication service for user management and magic links."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
@@ -65,7 +65,7 @@ class AuthService:
         token = generate_magic_link_token()
 
         # Calculate expiration
-        expires_at = datetime.utcnow() + timedelta(minutes=settings.MAGIC_LINK_EXPIRE_MINUTES)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.MAGIC_LINK_EXPIRE_MINUTES)
 
         # Create magic link token
         magic_link_token = MagicLinkToken(
@@ -132,13 +132,13 @@ class AuthService:
             return None
 
         # Check if expired
-        if magic_link.expires_at < datetime.utcnow():
+        if magic_link.expires_at < datetime.now(timezone.utc):
             logger.warning(f"Expired magic link token for {magic_link.email}")
             return None
 
         # Mark as used
         magic_link.is_used = True
-        magic_link.used_at = datetime.utcnow()
+        magic_link.used_at = datetime.now(timezone.utc)
         db.commit()
 
         # Get or create user
@@ -168,7 +168,7 @@ class AuthService:
         access_token = create_access_token(token_data)
 
         # Calculate expiration
-        expires_at = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
         # Create session
         session = SessionModel(
@@ -217,14 +217,14 @@ class AuthService:
             return None
 
         # Check if expired
-        if session.expires_at < datetime.utcnow():
+        if session.expires_at < datetime.now(timezone.utc):
             session.is_active = False
             db.commit()
             logger.warning(f"Expired session for user {user_id}")
             return None
 
         # Update last activity
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
         db.commit()
 
         # Get user

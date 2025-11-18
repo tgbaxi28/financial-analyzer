@@ -129,6 +129,40 @@ async def verify_magic_link(
     )
 
 
+@router.get("/verify", response_model=TokenResponse)
+async def verify_magic_link_get(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Verify magic link token via GET request (for email links).
+
+    Args:
+        token: Magic link token from query parameter
+        db: Database session
+
+    Returns:
+        Access token and user data
+    """
+    # Verify magic link
+    user = auth_service.verify_magic_link(db, token)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired magic link"
+        )
+
+    # Create session and get access token
+    access_token = auth_service.create_session(db, user.id)
+
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user)
+    )
+
+
 @router.post("/logout")
 async def logout_user(
     current_user: User = Depends(get_current_user),

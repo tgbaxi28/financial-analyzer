@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS family_members (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    relationship VARCHAR(50),
+    relationship_type VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS documents (
     chunk_count INTEGER DEFAULT 0,
     qdrant_collection_name VARCHAR(255),
     deleted_at TIMESTAMP WITH TIME ZONE,
-    metadata JSONB
+    document_metadata JSONB
 );
 
 -- Audit logs table

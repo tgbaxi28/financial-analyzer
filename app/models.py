@@ -38,7 +38,7 @@ class FamilyMember(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
-    relationship = Column(String(50))
+    relationship_type = Column(String(50))
     created_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True)
@@ -91,7 +91,7 @@ class Document(Base):
     chunk_count = Column(Integer, default=0)
     qdrant_collection_name = Column(String(255))
     deleted_at = Column(TIMESTAMP(timezone=True))
-    metadata = Column(JSONB)
+    document_metadata = Column(JSONB)
 
     __table_args__ = (
         CheckConstraint("owner_type IN ('user', 'family_member')", name="check_owner_type"),

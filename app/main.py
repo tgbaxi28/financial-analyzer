@@ -15,8 +15,11 @@ from app.utils.logger import logger
 from app.api import auth, family, documents
 from app.schemas import HealthCheckResponse
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables (if they don't exist)
+try:
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+except Exception as e:
+    logger.warning(f"Could not create tables (may already exist): {e}")
 
 # Create FastAPI app
 app = FastAPI(
@@ -57,8 +60,9 @@ async def health_check():
     # Check database
     try:
         from app.database import SessionLocal
+        from sqlalchemy import text
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         db_status = "healthy"
     except Exception as e:

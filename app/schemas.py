@@ -32,7 +32,7 @@ class FamilyMemberBase(BaseModel):
     """Base family member schema."""
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
-    relationship: Optional[str] = Field(None, max_length=50)
+    relationship_type: Optional[str] = Field(None, max_length=50)
 
 
 class FamilyMemberCreate(FamilyMemberBase):
@@ -44,7 +44,7 @@ class FamilyMemberUpdate(BaseModel):
     """Schema for updating family member."""
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    relationship: Optional[str] = Field(None, max_length=50)
+    relationship_type: Optional[str] = Field(None, max_length=50)
     is_active: Optional[bool] = None
 
 
